@@ -1,8 +1,4 @@
 #include <iostream>
-#include <fstream>
-#include <string>
-#include <iomanip>
-#include <sstream>
 
 #include "TROOT.h"
 #include "TFile.h"
@@ -10,8 +6,8 @@
 #include "TF1.h"
 #include "TCanvas.h"
 #include "TTree.h"
-#include "TGraph.h"
-#include "TVector.h"
+#include "TGraphErrors.h"
+#include "TLine.h"
 #include "TMath.h"
 #include "TLegend.h"
 
@@ -108,7 +104,7 @@ void makePlot_uvB()
   cout << "Thickness Ratio: " << R << endl;
   /*Calculate theoretical permeability of ferromagnet*/
   double u_cloak = (1 + pow(R2,2)) / (1 - pow(R2,2));
-  cout << "Permeability: " << u_cloak << endl;
+  cout << "Desired Permeability: " << u_cloak << endl;
 
   /*
    * Permeability Plot for First Ferromagnet
@@ -154,10 +150,13 @@ void makePlot_uvB()
   /*Run Calibration*/
   TF1 *calib_fit4 = Calibration("../Data/Calibration_Data/DataFile_150618_104728.txt");
   TGraph *fm_scan4 = Ferromagnet_Scan("../Data/Ferromagnet_Scan_Data/DataFile_150611_122014.txt", calib_fit4, R);
-  //fm_scan4->Draw("LP");
-  //fm_scan4->SetLineColor(kGreen+3);
-  //fm_scan4->SetMarkerColor(kGreen+3);
-  
+  /*
+  fm_scan4->Draw("LP");
+  fm_scan4->SetLineColor(kGreen+3);
+  fm_scan4->SetMarkerColor(kGreen+3);
+  */
+
+  /*Create Legend*/  
   TLegend *l_FMscan = new TLegend(0.45,0.7,0.8,0.85);
   l_FMscan->SetNColumns(1);
   l_FMscan->AddEntry( fm_scan1 , "Thomas" , "lp");
@@ -166,6 +165,10 @@ void makePlot_uvB()
   l_FMscan->AddEntry( fm_scan4 , "Raphael" , "lp");
   l_FMscan->Draw();
 
-  //  c_uvB->Print("../../Plots/uvB/uvB_EpoxySteel_fv15_NewvOld.png");
+  /*Save plots to png and eps files*/
+  /*
+  c_uvB->Print("../../Plots/uvB/uvB_EpoxySteel_fv15_NewvOld.png");
+  c_uvB->Print("../../Plots/uvB/uvB_EpoxySteel_fv15_NewvOld.eps");
+  */
   return;
 }
