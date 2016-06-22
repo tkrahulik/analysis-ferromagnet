@@ -1,124 +1,115 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <iomanip>
-#include <sstream>
+/*==============B vs z Plotting Macro=============
+ * Project: A Compact Magnetic Field Cloaking Device
+ * Author: Thomas Krahulik
+ * Date: June 22, 2016
+ * Purpose: To plot B vs z measurements
+ * To run macro: root -l makePlot_Bvz.C
+ =================================================*/
 
-#include "TROOT.h"
-#include "TFile.h"
-#include "TH1F.h"
-#include "TF1.h"
-#include "TCanvas.h"
-#include "TTree.h"
-#include "TGraphErrors.h"
-#include "TVector.h"
-#include "TMath.h"
-#include "TLegend.h"
-#include "TLine.h"
-
-using namespace std;
-
-/* ============================
- * Ferromagnet B vs z Analysis
-   ============================*/
+/* =================================
+ * B vs z Analysis Plotting Function
+   =================================*/
 /*
  * This functions reads in a data
  * file of B vs z measurements
  * and generates a plot.
  */
 
-TGraph* plot_Bvz(
-		const TString f_calib,
-		double scale,
+TGraphErrors* plot_Bvz(
+		const TString f_data,
 		double offset
 )
 {
   /*Read in Data File*/
-  //Right now stored on Dropbox
-  cout<< "processing file " << f_calib <<endl;
-  ifstream infile(f_calib);
-  /*Initialize Variables*/
-  string l_calib;
-  double z_temp, I_temp, B_temp, I_err_temp, B_err_temp;
-  vector<double> z, z_err , I, I_err, B, B_err;
-  /*Read in each line of data file*/
-  /*Assign values in each line to data variables*/
-  while( getline(infile, l_calib) )
-    {
-      /*Ignore any lines that start with # or // */
-      if ( l_calib[0]=='#' || l_calib.substr(0, 2) == "//" )
-	{
-	  getline(infile,l_calib);
-	  continue;
-	}
-      istringstream line( l_calib.c_str() );
-      line >> z_temp;
-      z.push_back( (-1.0)*(z_temp - offset) );
-      z_err.push_back(0.5);
-      line >> B_temp >> B_err_temp;
-      B.push_back( TMath::Abs( B_temp*scale ) );
-      B_err.push_back(B_err_temp);
-      line >> I_temp >> I_err_temp;
-      I.push_back( I_temp );
-      I_err.push_back( I_err_temp );
-    }
-  /*Convert c++ vectors to ROOT TVectors*/
-  TVectorD z_real(z.size(), &z[0]);
-  TVectorD z_err_real(z.size(), &z_err[0]);
-  TVectorD I_real(z.size(), &I[0]);
-  TVectorD B_real(z.size(), &B[0]);
-  TVectorD B_err_real(z.size(), &B_err[0]);
-  /*Create B vs z Graph*/
-  TGraphErrors *g_data = new TGraphErrors(z_real, B_real, z_err_real, B_err_real);
+  cout << "Processing File " << f_data << endl;
+  /*Read in B vs z data to a ROOT tree*/
+  TTree *TData = new TTree();
+  TData->ReadFile(f_data, "z/D:B:B_err:I:I_err");
+  /*Obtain number of points and set branches of tree to arrays*/
+  Int_t n = TData->Draw("z:TMath::Abs(B):0.5:B_err" , "", "goff");
+  /*Graph B vs z data points*/
+  TGraphErrors *g_Bvz = new TGraphErrors(n, TData->GetV1(), TData->GetV2(), TData->GetV3(), TData->GetV4());
 
-  return g_data;
+  /*Center */
+  for (int i = 0; i < g_Bvz->GetN(); i++)
+    {
+      g_Bvz->SetPoint( i, g_Bvz->GetX()[i] - offset, g_Bvz->GetY()[i] );
+      g_Bvz->SetPointError(i , sqrt((g_Bvz->GetEX()[i])**2 + (0.5)**2) , g_Bvz->GetEY()[i] );
+    }
+
+  return g_Bvz;
+
 }
 
+/*===============================================
+ * Plotting B vs z for Collection of Measurements
+ ================================================*/
+/*
+ * Plot and compare several measurements of B vs z
+ * Calling format function for each plot:
+ * plot_Bvz("/path/to/data_file.txt", z_offset)
+ */
 
 void makePlot_Bvz()
 {
   /*Create blank histogram to have a method of modifying axes and labels*/
   TCanvas *c_data = new TCanvas;
-  TH1 *h_data = c_data->DrawFrame(-750.0, 0.0, 750.0, 5.0);
-  //h_data->SetTitle("Epoxy/Steel, F_{v} = 0.3, B_{0} = 27.0mT");
+  /*To set ranges: DrawFrame(x_min, y_min, x_max, y_max)*/
+  TH1 *h_data = c_data->DrawFrame(-100.0, 23.0, 100.0, 26.0);
   h_data->SetTitle("");
   h_data->GetXaxis()->SetTitle("z (mm)");
   h_data->GetXaxis()->SetTitleOffset(1.0);
   h_data->GetYaxis()->SetTitle("B_{0} (mT)");
   h_data->GetYaxis()->SetTitleOffset(1.0);
 
-  /*Add Vertical Lines at Ends of Ferromagnet*/
-  TLine *FM_start = new TLine(-508, 0.0,-508, 4.5);
-  FM_start->SetLineStyle(1);
-  FM_start->SetLineColor(kBlue);
+  /*Add Vertical Lines at Important Points*/
+  /*To set locations of lines: TLine(x_min, y_min, x_max, y_max)*/
+  TLine *FM_start = new TLine(-62.5, 24.0,-62.5, 25.0);
+  FM_start->SetLineStyle(2);
+  FM_start->SetLineColor(kGreen+2);
   FM_start->Draw();
-  TLine *FM_end = new TLine(508, 0.0 , 508, 4.5);
-  FM_end->SetLineStyle(1);
-  FM_end->SetLineColor(kBlue);
+  TLine *FM_end = new TLine(62.5, 24.0 , 62.5, 25.0);
+  FM_end->SetLineStyle(2);
+  FM_end->SetLineColor(kGreen+2);
   FM_end->Draw();
-  
-  TGraphErrors *g_app = plot_Bvz("../Data/Bvz_Scan_Data/DataFile_150506_171251.txt", 27.0/25.0, 150.0);
-  g_app->Draw("LP");
-  g_app->SetLineColor(kBlue);
-  g_app->SetMarkerColor(kBlue);
-  TGraphErrors *g_FMscan_1 = plot_Bvz("../Data/Bvz_Scan_Data/DataFile_160613_170851.txt", 1.0, 600.0);
-  g_FMscan_1->Draw("LP");
-  g_FMscan_1->SetLineColor(kGreen+3);
-  g_FMscan_1->SetMarkerColor(kGreen+3);
-  TGraph *g_FMscan_2 = plot_Bvz("../Data/Bvz_Scan_Data/DataFile_150611_141440.txt", 1.0, 205.0);
-  g_FMscan_2->Draw("LP");
-  g_FMscan_2->SetLineColor(kRed+1);
-  g_FMscan_2->SetMarkerColor(kRed+1);
-  
+  TLine *center = new TLine(0.0, 24.0 , 0.0, 25.0);
+  center->SetLineStyle(2);
+  center->Draw();
+
+
+  /*Plot B vs z for a Reference Field*/  
+  TGraphErrors *g_Ref = plot_Bvz("../Data/Bvz_Scan_Data/DataFile_160622_104925.txt", 192.0);
+  g_Ref->Draw("LP");
+  g_Ref->SetLineColor(kBlue);
+  g_Ref->SetMarkerColor(kBlue);
+
+  /*Plot B vs z for First Measurement*/
+  TGraphErrors *g_BvzScan1 = plot_Bvz("../Data/Bvz_Scan_Data/DataFile_160622_110013.txt", 192.0);
+  g_BvzScan1->Draw("LP");
+  g_BvzScan1->SetLineColor(kGreen+2);
+  g_BvzSacn1->SetMarkerColor(kGreen+2);
+  g_BvzScan1->Fit("pol2", "", "", -50, 50);
+
+  /*Plot B vs z for Second Measurement*/
+  /*
+  TGraph *g_BvzScan2 = plot_Bvz("../Data/Bvz_Scan_Data/DataFile_150611_141440.txt", 205.0);
+  g_BvzScan2->Draw("LP");
+  g_BvzScan2->SetLineColor(kRed+1);
+  g_BvzScan2->SetMarkerColor(kRed+1);
+  */
+
   /*Create Legend*/
   TLegend *l_FMscan = new TLegend(0.5,0.75,0.8,0.85);
   l_FMscan->SetNColumns(1);
-  l_FMscan->AddEntry( g_app , "Reference Field" , "lp");
-  l_FMscan->AddEntry( g_FMscan_1 , "Superconductor Shield" , "lp");
+  l_FMscan->AddEntry( g_Ref , "Reference Field" , "lp");
+  l_FMscan->AddEntry( g_FMscan_1 , "Ferromagnet" , "lp");
   l_FMscan->AddEntry( FM_start , "End of Ferromagnet" , "l");
   l_FMscan->Draw();
   
-  //c_data->Print("../../Plots/Bvz/Bvz_SC_Shield.png");
-  //c_data->Print("../../Plots/Bvz/Bvz_SC_Shield.eps");
+  /*Save plots to png and eps files*/
+  /*
+   c_data->Print("../../Plots/Bvz/Bvz_SC_Shield.png");
+   c_data->Print("../../Plots/Bvz/Bvz_SC_Shield.eps");
+  */
   return;
 }
